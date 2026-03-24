@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat vs Dog AI Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            background-color: #f4f7f6;
+            color: #333;
+            margin-top: 50px;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+            display: inline-block;
+            max-width: 500px;
+            width: 100%;
+        }
+        img {
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
+            display: none;
+        }
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #007bff;
+        }
+        button, input[type="file"] {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            transition: 0.3s;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🐶 Cat vs Dog AI 🐱</h1>
+        <p>Upload a photo and let the Neural Network guess!</p>
+        
+        <input type="file" id="imageUpload" accept="image/*">
+        <br>
+        <img id="imagePreview" src="" alt="Image Preview">
+        <br>
+        <button id="predictButton" disabled>Analyze Image</button>
+        
+        <div id="result">Loading AI Model... Please wait.</div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const predictButton = document.getElementById('predictButton');
+        const resultDiv = document.getElementById('result');
+
+        let model;
+
+        // 1. Load the Model from your folder
+        async function loadModel() {
+            try {
+                // FIXED: Pointing directly to your specific folder!
+                model = await tf.loadLayersModel('./final_try_local_web/model.json');
+                resultDiv.innerText = "✅ Model Loaded! Ready for a photo.";
+                resultDiv.style.color = "green";
+            } catch (error) {
+                console.error(error);
+                resultDiv.innerText = "❌ Error loading model. Check folder paths.";
+                resultDiv.style.color = "red";
+            }
+        }
+        
+        // Start loading the model as soon as the page opens
+        loadModel();
+
+        // 2. Handle the Image Upload
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'inline-block';
+                    predictButton.disabled = false;
+                    resultDiv.innerText = ""; // Clear old text
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 3. Run the Prediction
+        predictButton.addEventListener('click', async () => {
+            if (!model) return;
+            resultDiv.innerText = "Thinking...";
+            resultDiv.style.color = "#007bff";
+
+            // Grab the image from the screen and format it exactly how the AI expects
+            let tensor = tf.browser.fromPixels(imagePreview)
+                .resizeNearestNeighbor([160, 160]) // Same size as training data
+                .toFloat();
+
+            // MobileNetV2 requires pixels to be scaled between -1 and 1
+            let offset = tf.scalar(127.5);
+            tensor = tensor.div(offset).sub(tf.scalar(1.0));
+            tensor = tensor.expandDims(0); // Add the batch dimension
+
+            // Run the math
+            const prediction = await model.predict(tensor).data();
+            const confidence = prediction[0]; // Gets the sigmoid value between 0 and 1
+
+            // 0 is Cat, 1 is Dog (Based on alphabetical sorting of your folders)
+            if (confidence > 0.5) {
+                resultDiv.innerText = `🐶 It's a Dog! (${((confidence) * 100).toFixed(1)}% sure)`;
+                resultDiv.style.color = "#28a745";
+            } else {
+                resultDiv.innerText = `🐱 It's a Cat! (${((1 - confidence) * 100).toFixed(1)}% sure)`;
+                resultDiv.style.color = "#17a2b8";
+            }
+        });
+    </script>
+</body>
+</html>
