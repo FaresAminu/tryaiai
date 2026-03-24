@@ -86,7 +86,7 @@
         async function loadModel() {
             try {
                 // FIXED: Pointing directly to your specific folder!
-                model = await tf.loadLayersModel('final_try_local_web/model.json');
+                model = await tf.loadLayersModel('final_try_local_web/model.json?v=' + new Date().getTime());
                 resultDiv.innerText = "✅ Model Loaded! Ready for a photo.";
                 resultDiv.style.color = "green";
             } catch (error) {
